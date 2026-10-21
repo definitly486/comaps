@@ -115,6 +115,18 @@ public class Framework
   @Size(2)
   public static native double[] nativeGetScreenRectCenter();
 
+  /**
+   * Converts a point in screen pixels to {lat, lon}.
+   */
+  @Size(2)
+  public static native double[] nativeScreenToLatLon(float x, float y);
+
+  /**
+   * Converts {lat, lon} to a point in screen pixels, returned as {x, y}. The point may lie outside the screen.
+   */
+  @Size(2)
+  public static native float[] nativeLatLonToScreen(double lat, double lon);
+
   public static native DistanceAndAzimut nativeGetDistanceAndAzimuth(double dstMerX, double dstMerY, double srcLat,
                                                                      double srcLon, double north);
 

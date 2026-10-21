@@ -220,6 +220,12 @@
     <!-- Length of track in cell that describes route -->
     <string name="length">Length</string>
     <string name="share_my_location">Share My Location</string>
+    <!-- Main menu item: tool that measures the distance between points tapped on the map -->
+    <string name="ruler">Measure distance</string>
+    <!-- Hint shown in the ruler panel before at least two points are set -->
+    <string name="ruler_hint">Tap the map to add points</string>
+    <!-- Accessibility label of the button that removes the last ruler point -->
+    <string name="ruler_undo">Remove last point</string>
     <string name="prefs_group_map_appearance">Map appearance</string>
     <string name="prefs_group_map_appearance_summary">Map language, labels size, 2D/3D buildings</string>
     <string name="prefs_group_interface">Interface</string>

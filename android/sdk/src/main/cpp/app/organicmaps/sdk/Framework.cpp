@@ -1216,6 +1216,30 @@ JNIEXPORT jdoubleArray JNICALL Java_app_organicmaps_sdk_Framework_nativeGetScree
   return jLatLon;
 }
 
+JNIEXPORT jdoubleArray JNICALL Java_app_organicmaps_sdk_Framework_nativeScreenToLatLon(JNIEnv * env, jclass, jfloat x,
+                                                                                       jfloat y)
+{
+  m2::PointD const mercatorPt = frm()->PtoG(m2::PointD(x, y));
+
+  double latlon[] = {mercator::YToLat(mercatorPt.y), mercator::XToLon(mercatorPt.x)};
+  jdoubleArray jLatLon = env->NewDoubleArray(2);
+  env->SetDoubleArrayRegion(jLatLon, 0, 2, latlon);
+
+  return jLatLon;
+}
+
+JNIEXPORT jfloatArray JNICALL Java_app_organicmaps_sdk_Framework_nativeLatLonToScreen(JNIEnv * env, jclass,
+                                                                                      jdouble lat, jdouble lon)
+{
+  m2::PointD const pixelPt = frm()->GtoP(mercator::FromLatLon(lat, lon));
+
+  float xy[] = {static_cast<float>(pixelPt.x), static_cast<float>(pixelPt.y)};
+  jfloatArray jXY = env->NewFloatArray(2);
+  env->SetFloatArrayRegion(jXY, 0, 2, xy);
+
+  return jXY;
+}
+
 JNIEXPORT void JNICALL Java_app_organicmaps_sdk_Framework_nativeShowTrackRect(JNIEnv * env, jclass, jlong track)
 {
   frm()->ShowTrack(static_cast<kml::TrackId>(track));

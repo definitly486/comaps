@@ -131,6 +131,7 @@ import app.organicmaps.widget.StackedButtonsDialog;
 import app.organicmaps.widget.menu.MainMenu;
 import app.organicmaps.widget.placepage.PlacePageController;
 import app.organicmaps.widget.placepage.PlacePageViewModel;
+import app.organicmaps.widget.ruler.RulerView;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
@@ -182,6 +183,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
   private NavigationController mNavigationController;
 
   private MainMenu mMainMenu;
+
+  @Nullable
+  private RulerView mRuler;
 
   private PanelAnimator mPanelAnimator;
   @Nullable
@@ -613,6 +617,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
     mMapController = new MapController(findViewById(R.id.map), MwmApplication.from(this).getLocationHelper(), this,
                                        this::reportUnsupported, isLaunchByDeeplink);
     getLifecycle().addObserver(mMapController);
+
+    mRuler = findViewById(R.id.ruler);
+    mRuler.attach(findViewById(R.id.map), null);
 
     initNavigationButtons();
 
@@ -1283,8 +1290,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
   public void onBackPressed()
   {
     final RoutingController routingController = RoutingController.get();
-    if (!closeBottomSheet(MAIN_MENU_ID) && !closeBottomSheet(LAYERS_MENU_ID) && !collapseNavMenu() && !closePlacePage()
-        && !closeSearchToolbar(true, true) && !closeSidePanel() && !closePositionChooser()
+    if (!closeBottomSheet(MAIN_MENU_ID) && !closeBottomSheet(LAYERS_MENU_ID) && !closeRuler() && !collapseNavMenu()
+        && !closePlacePage() && !closeSearchToolbar(true, true) && !closeSidePanel() && !closePositionChooser()
         && !routingController.resetToPlanningStateIfNavigating() && !routingController.cancel())
     {
       try
@@ -1456,6 +1463,9 @@ public class MwmActivity extends BaseMwmFragmentActivity
       offsetY = Math.max(offsetY, bottomButtonHeight.intValue() + mNavBarHeight);
     if (mMainMenu != null)
       offsetY = Math.max(offsetY, mMainMenu.getMenuHeight());
+
+    if (mRuler != null)
+      mRuler.setPanelBottomMargin(offsetY + dimen(this, R.dimen.margin_base));
 
     final View navBottomSheetLineFrame = findViewById(R.id.line_frame);
     final View navBottomSheetNavBar = findViewById(R.id.nav_bottom_sheet_nav_bar);
@@ -2406,6 +2416,23 @@ public class MwmActivity extends BaseMwmFragmentActivity
     Utils.openUrl(this, mDonatesUrl);
   }
 
+  private void onRulerOptionSelected()
+  {
+    if (mRuler == null)
+      return;
+    closeFloatingPanels();
+    updateBottomWidgetsOffset();
+    mRuler.open();
+  }
+
+  private boolean closeRuler()
+  {
+    if (mRuler == null || !mRuler.isActive())
+      return false;
+    mRuler.close();
+    return true;
+  }
+
   public void onSettingsOptionSelected()
   {
     closeFloatingPanels();
@@ -2542,6 +2569,8 @@ public class MwmActivity extends BaseMwmFragmentActivity
 
       items.add(new MenuBottomSheetItem(R.string.share_my_location, R.drawable.ic_share,
                                         this::onShareLocationOptionSelected));
+
+      items.add(new MenuBottomSheetItem(R.string.ruler, R.drawable.ic_straighten, this::onRulerOptionSelected));
 
       if (!BUTTON_HELP_CODE.equals(activeLeftButton))
         items.add(new MenuBottomSheetItem(R.string.about_help, R.drawable.ic_logo_monochrome, this::showHelp));

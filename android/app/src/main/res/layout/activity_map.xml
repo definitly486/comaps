@@ -13,6 +13,11 @@
       android:id="@+id/map"
       android:layout_width="match_parent"
       android:layout_height="match_parent" />
+    <app.organicmaps.widget.ruler.RulerView
+      android:id="@+id/ruler"
+      android:layout_width="match_parent"
+      android:layout_height="match_parent"
+      android:visibility="gone" />
     <include
       android:id="@+id/onmap_downloader"
       layout="@layout/onmap_downloader"
