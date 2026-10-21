@@ -10,6 +10,18 @@
     <string name="cancel">Cancel</string>
     <!-- Button which deletes downloaded country -->
     <string name="delete">Delete</string>
+    <!-- Bookmarks list: enter multi-selection mode -->
+    <string name="select">Select</string>
+    <!-- Bookmarks list, selection mode: select every item in the list -->
+    <string name="select_all">Select all</string>
+    <!-- Bookmarks list, selection mode: toolbar title, %1$d is the number of selected items -->
+    <string name="selected_count">Selected: %1$d</string>
+    <!-- Bookmark lists screen, selection mode: delete confirmation, %1$d is the number of selected lists -->
+    <string name="delete_selected_lists_confirm">Delete selected lists (%1$d) with all their places and tracks?</string>
+    <!-- Bookmark lists screen, selection mode: shown when every list is selected for deletion -->
+    <string name="keep_one_list">At least one list must remain</string>
+    <!-- Bookmarks list, selection mode: delete confirmation, %1$d is the number of selected items -->
+    <string name="delete_selected_confirm">Delete selected items (%1$d)?</string>
     <string name="download_maps">Download Maps</string>
     <!-- Settings/Downloader - info for country when download fails -->
     <string name="download_has_failed">Download has failed, tap to try again</string>

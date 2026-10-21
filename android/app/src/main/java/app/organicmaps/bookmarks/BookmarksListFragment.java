@@ -11,6 +11,7 @@ import android.view.MenuInflater;
 import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.CallSuper;
@@ -50,6 +51,7 @@ import app.organicmaps.widget.SearchToolbarController;
 import app.organicmaps.widget.placepage.BookmarkColorDialogFragment;
 import app.organicmaps.widget.placepage.EditBookmarkFragment;
 import app.organicmaps.widget.recycler.DividerItemDecorationWithPadding;
+import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.floatingactionbutton.ExtendedFloatingActionButton;
 import com.google.android.material.imageview.ShapeableImageView;
 import java.util.ArrayList;
@@ -112,6 +114,15 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
   };
   @Nullable
   private Bundle mSavedInstanceState;
+  private boolean mSelectionMode = false;
+  // Intercepts "back" while in selection mode to leave it instead of closing the screen.
+  private final OnBackPressedCallback mSelectionBackCallback = new OnBackPressedCallback(false) {
+    @Override
+    public void handleOnBackPressed()
+    {
+      stopSelectionMode();
+    }
+  };
 
   @CallSuper
   @Override
@@ -122,6 +133,7 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
     mCategoryDataSource = new CategoryDataSource(category);
 
     shareLauncher = SharingUtils.RegisterLauncher(this);
+    requireActivity().getOnBackPressedDispatcher().addCallback(this, mSelectionBackCallback);
   }
 
   @NonNull
@@ -249,9 +261,19 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
     BookmarkListAdapter adapter = getBookmarkListAdapter();
     adapter.registerAdapterDataObserver(mCategoryDataSource);
     adapter.setOnClickListener((v, position) -> onItemClick(position));
-    adapter.setOnLongClickListener((v, position) -> onItemMore(position));
-    adapter.setMoreListener((v, position) -> onItemMore(position));
-    adapter.setIconClickListener(this::showColorDialog);
+    adapter.setOnLongClickListener((v, position) -> onItemLongClick(position));
+    adapter.setMoreListener((v, position) -> {
+      if (mSelectionMode)
+        onSelectionToggle(position);
+      else
+        onItemMore(position);
+    });
+    adapter.setIconClickListener((v, position) -> {
+      if (mSelectionMode)
+        onSelectionToggle(position);
+      else
+        showColorDialog(v, position);
+    });
   }
 
   private void configureFab(@NonNull View view)
@@ -547,8 +569,107 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
     requireActivity().invalidateOptionsMenu();
   }
 
+  private void onItemLongClick(int position)
+  {
+    BookmarkListAdapter adapter = getBookmarkListAdapter();
+    if (mSelectionMode)
+    {
+      onSelectionToggle(position);
+      return;
+    }
+    // A long press on a track starts multi-selection. Bookmarks keep their context menu,
+    // as they have no "more" button; they can be selected via the options menu.
+    if (adapter.getItemViewType(position) == BookmarkListAdapter.TYPE_TRACK)
+    {
+      startSelectionMode();
+      onSelectionToggle(position);
+      return;
+    }
+    onItemMore(position);
+  }
+
+  private void onSelectionToggle(int position)
+  {
+    getBookmarkListAdapter().toggleSelection(position);
+    updateSelectionUi();
+  }
+
+  private void startSelectionMode()
+  {
+    if (mSelectionMode)
+      return;
+    mSelectionMode = true;
+    mSelectionBackCallback.setEnabled(true);
+    mToolbarController.deactivate();
+    getBookmarkListAdapter().setSelectionMode(true);
+    updateSelectionUi();
+  }
+
+  private void stopSelectionMode()
+  {
+    if (!mSelectionMode)
+      return;
+    mSelectionMode = false;
+    mSelectionBackCallback.setEnabled(false);
+    getBookmarkListAdapter().setSelectionMode(false);
+    ActionBar bar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+    if (bar != null)
+      bar.setTitle(mCategoryDataSource.getData().getName());
+    requireActivity().invalidateOptionsMenu();
+  }
+
+  private void updateSelectionUi()
+  {
+    ActionBar bar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+    if (bar != null)
+      bar.setTitle(getString(R.string.selected_count, getBookmarkListAdapter().getSelectedCount()));
+    requireActivity().invalidateOptionsMenu();
+  }
+
+  private void onDeleteSelectedSelected()
+  {
+    final BookmarkListAdapter adapter = getBookmarkListAdapter();
+    final int count = adapter.getSelectedCount();
+    if (count == 0)
+      return;
+    new MaterialAlertDialogBuilder(requireActivity())
+        .setMessage(getString(R.string.delete_selected_confirm, count))
+        .setNegativeButton(R.string.cancel, null)
+        .setPositiveButton(R.string.delete, (dialog, which) -> deleteSelectedItems())
+        .show();
+  }
+
+  private void deleteSelectedItems()
+  {
+    final BookmarkListAdapter adapter = getBookmarkListAdapter();
+    final List<Long> trackIds = adapter.getSelectedTrackIds();
+    final List<Long> bookmarkIds = adapter.getSelectedBookmarkIds();
+
+    for (long id : trackIds)
+      BookmarkManager.INSTANCE.deleteTrack(id);
+    for (long id : bookmarkIds)
+      BookmarkManager.INSTANCE.deleteBookmark(id);
+
+    // Leave selection mode, refresh the category counters and rebuild the list from scratch.
+    mSelectionMode = false;
+    mSelectionBackCallback.setEnabled(false);
+    adapter.setSelectionMode(false);
+    mCategoryDataSource.invalidate();
+    ActionBar bar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+    if (bar != null)
+      bar.setTitle(mCategoryDataSource.getData().getName());
+    resetSearchAndSort();
+    updateSearchVisibility();
+  }
+
   public void onItemClick(int position)
   {
+    if (mSelectionMode)
+    {
+      onSelectionToggle(position);
+      return;
+    }
+
     final Intent intent = makeMwmActivityIntent();
 
     BookmarkListAdapter adapter = getBookmarkListAdapter();
@@ -665,18 +786,51 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
   {
     super.onPrepareOptionsMenu(menu);
 
-    boolean visible = !mSearchMode && !isEmpty();
+    boolean visible = !mSearchMode && !isEmpty() && !mSelectionMode;
     MenuItem itemSearch = menu.findItem(R.id.bookmarks_search);
     itemSearch.setVisible(visible);
 
     MenuItem itemMore = menu.findItem(R.id.bookmarks_more);
+    itemMore.setVisible(!mSelectionMode);
     if (mLastSortTimestamp != 0)
       itemMore.setActionView(R.layout.toolbar_menu_progressbar);
+
+    final MenuItem itemSelectAll = menu.findItem(R.id.bookmarks_select_all);
+    final MenuItem itemDeleteSelected = menu.findItem(R.id.bookmarks_delete_selected);
+    final MenuItem itemCancel = menu.findItem(R.id.bookmarks_cancel_selection);
+    itemSelectAll.setVisible(mSelectionMode);
+    itemDeleteSelected.setVisible(mSelectionMode);
+    itemCancel.setVisible(mSelectionMode);
+    if (mSelectionMode)
+    {
+      final BookmarkListAdapter adapter = getBookmarkListAdapter();
+      itemSelectAll.setEnabled(adapter.getSelectedCount() < adapter.getSelectableCount());
+      itemDeleteSelected.setEnabled(adapter.getSelectedCount() > 0);
+    }
   }
 
   @Override
   public boolean onOptionsItemSelected(MenuItem item)
   {
+    if (item.getItemId() == R.id.bookmarks_select_all)
+    {
+      getBookmarkListAdapter().selectAll();
+      updateSelectionUi();
+      return true;
+    }
+
+    if (item.getItemId() == R.id.bookmarks_delete_selected)
+    {
+      onDeleteSelectedSelected();
+      return true;
+    }
+
+    if (item.getItemId() == R.id.bookmarks_cancel_selection)
+    {
+      stopSelectionMode();
+      return true;
+    }
+
     if (item.getItemId() == R.id.bookmarks_search)
     {
       activateSearch();
@@ -768,6 +922,7 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
     ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
     if (!isEmpty())
     {
+      items.add(new MenuBottomSheetItem(R.string.select, R.drawable.ic_checkmark, this::startSelectionMode));
       if (types.length > 0)
         items.add(new MenuBottomSheetItem(R.string.sort, R.drawable.ic_sort, this::onSortOptionSelected));
       items.add(new MenuBottomSheetItem(R.string.export_file, R.drawable.ic_file_kmz,

@@ -21,7 +21,9 @@ import app.organicmaps.sdk.bookmarks.data.BookmarkManager;
 import app.organicmaps.util.UiUtils;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class BookmarkCategoriesAdapter extends BaseBookmarkCategoryAdapter<RecyclerView.ViewHolder>
 {
@@ -44,6 +46,11 @@ public class BookmarkCategoriesAdapter extends BaseBookmarkCategoryAdapter<Recyc
   private ItemTouchHelper mItemTouchHelper;
   @NonNull
   private final MassOperationAction mMassOperationAction = new MassOperationAction();
+
+  // Multi-selection state, categories are tracked by id.
+  private boolean mSelectionMode = false;
+  @NonNull
+  private final Set<Long> mSelectedCategoryIds = new HashSet<>();
 
   @Override
   public void onAttachedToRecyclerView(@NonNull RecyclerView recyclerView)
@@ -161,6 +168,7 @@ public class BookmarkCategoriesAdapter extends BaseBookmarkCategoryAdapter<Recyc
       categoryHolder.setName(category.getName());
       categoryHolder.setSize();
       categoryHolder.setVisibilityState(category.isVisible());
+      categoryHolder.setSelection(mSelectionMode, mSelectedCategoryIds.contains(category.getId()));
       ToggleVisibilityClickListener visibilityListener = new ToggleVisibilityClickListener(categoryHolder);
       categoryHolder.setVisibilityListener(visibilityListener);
       CategoryItemMoreClickListener moreClickListener = new CategoryItemMoreClickListener(categoryHolder);
@@ -168,7 +176,7 @@ public class BookmarkCategoriesAdapter extends BaseBookmarkCategoryAdapter<Recyc
 
       boolean manualSort = BookmarkManager.INSTANCE.getCategorySortType()
           == BookmarkManager.SORT_CATEGORIES_MANUAL;
-      UiUtils.showIf(manualSort, categoryHolder.mDragHandle);
+      UiUtils.showIf(manualSort && !mSelectionMode, categoryHolder.mDragHandle);
       categoryHolder.mDragHandle.setOnTouchListener((v, event) -> {
         if (event.getAction() == MotionEvent.ACTION_DOWN && mItemTouchHelper != null)
           mItemTouchHelper.startDrag(holder);
@@ -242,6 +250,55 @@ public class BookmarkCategoriesAdapter extends BaseBookmarkCategoryAdapter<Recyc
     if (count == 0)
       return 0;
     return 1 /* header */ + count + 1 /* add button */ + 1 /* import button */ + 1 /* export button */;
+  }
+
+  boolean isSelectionMode()
+  {
+    return mSelectionMode;
+  }
+
+  void setSelectionMode(boolean selectionMode)
+  {
+    mSelectionMode = selectionMode;
+    mSelectedCategoryIds.clear();
+    notifyDataSetChanged();
+  }
+
+  void toggleSelection(@NonNull BookmarkCategory category)
+  {
+    final long id = category.getId();
+    if (!mSelectedCategoryIds.remove(id))
+      mSelectedCategoryIds.add(id);
+    final List<BookmarkCategory> categories = getBookmarkCategories();
+    for (int i = 0; i < categories.size(); i++)
+    {
+      if (categories.get(i).getId() == id)
+      {
+        notifyItemChanged(i + 1 /* header */);
+        return;
+      }
+    }
+  }
+
+  void selectAll()
+  {
+    mSelectedCategoryIds.clear();
+    for (BookmarkCategory category : getBookmarkCategories())
+      mSelectedCategoryIds.add(category.getId());
+    notifyDataSetChanged();
+  }
+
+  /** Ids of the selected categories that still exist. */
+  @NonNull
+  List<Long> getSelectedCategoryIds()
+  {
+    final List<Long> result = new ArrayList<>();
+    for (BookmarkCategory category : getBookmarkCategories())
+    {
+      if (mSelectedCategoryIds.contains(category.getId()))
+        result.add(category.getId());
+    }
+    return result;
   }
 
   void onItemMove(int fromAdapterPosition, int toAdapterPosition)

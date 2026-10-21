@@ -264,10 +264,13 @@ public class Holders
     ShapeableImageView mMoreButton;
     @NonNull
     final ShapeableImageView mDragHandle;
+    @NonNull
+    private final MaterialCheckBox mSelectionCheckBox;
 
     CategoryViewHolder(@NonNull View root)
     {
       super(root);
+      mSelectionCheckBox = root.findViewById(R.id.selection_checkbox);
       mName = root.findViewById(R.id.name);
       mVisibilityMarker = root.findViewById(R.id.checkbox);
       mMoreButton = root.findViewById(R.id.more);
@@ -289,6 +292,14 @@ public class Holders
       mMoreButton.setOnClickListener(listener);
     }
 
+    void setSelection(boolean selectionMode, boolean selected)
+    {
+      UiUtils.showIf(selectionMode, mSelectionCheckBox);
+      // Keep the button's space reserved so the text layout doesn't jump.
+      mMoreButton.setVisibility(selectionMode ? View.INVISIBLE : View.VISIBLE);
+      mSelectionCheckBox.setChecked(selected);
+    }
+
     void setName(@NonNull String name)
     {
       mName.setText(name);
@@ -308,6 +319,11 @@ public class Holders
 
     abstract void bind(@NonNull SectionPosition position,
                        @NonNull BookmarkListAdapter.SectionsDataSource sectionsDataSource);
+
+    /**
+     * Shows or hides the selection checkbox. Holders that cannot be selected ignore it.
+     */
+    void setSelection(boolean selectionMode, boolean selected) {}
 
     void setOnClickListener(@Nullable RecyclerClickListener listener)
     {
@@ -337,14 +353,24 @@ public class Holders
     private final MaterialTextView mDistance;
     @NonNull
     private final MaterialTextView mCategoryName;
+    @NonNull
+    private final MaterialCheckBox mSelectionCheckBox;
 
     BookmarkViewHolder(@NonNull View itemView)
     {
       super(itemView);
+      mSelectionCheckBox = itemView.findViewById(R.id.selection_checkbox);
       mIcon = itemView.findViewById(R.id.iv__bookmark_color);
       mName = itemView.findViewById(R.id.tv__bookmark_name);
       mDistance = itemView.findViewById(R.id.tv__bookmark_distance);
       mCategoryName = itemView.findViewById(R.id.tv__bookmark_category);
+    }
+
+    @Override
+    void setSelection(boolean selectionMode, boolean selected)
+    {
+      UiUtils.showIf(selectionMode, mSelectionCheckBox);
+      mSelectionCheckBox.setChecked(selected);
     }
 
     @Override
@@ -403,14 +429,26 @@ public class Holders
     @NonNull
     private final MaterialTextView mDistance;
     private final ShapeableImageView mMoreButton;
+    @NonNull
+    private final MaterialCheckBox mSelectionCheckBox;
 
     TrackViewHolder(@NonNull View itemView)
     {
       super(itemView);
+      mSelectionCheckBox = itemView.findViewById(R.id.selection_checkbox);
       mIcon = itemView.findViewById(R.id.iv__bookmark_color);
       mName = itemView.findViewById(R.id.tv__bookmark_name);
       mDistance = itemView.findViewById(R.id.tv__bookmark_distance);
       mMoreButton = itemView.findViewById(R.id.more);
+    }
+
+    @Override
+    void setSelection(boolean selectionMode, boolean selected)
+    {
+      UiUtils.showIf(selectionMode, mSelectionCheckBox);
+      // Keep the button's space reserved so the text layout doesn't jump.
+      mMoreButton.setVisibility(selectionMode ? View.INVISIBLE : View.VISIBLE);
+      mSelectionCheckBox.setChecked(selected);
     }
 
     @Override

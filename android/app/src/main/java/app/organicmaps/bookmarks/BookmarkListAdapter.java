@@ -19,7 +19,9 @@ import app.organicmaps.widget.recycler.RecyclerLongClickListener;
 import com.google.android.material.textview.MaterialTextView;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 public class BookmarkListAdapter extends RecyclerView.Adapter<Holders.BaseBookmarkHolder>
 {
@@ -48,6 +50,11 @@ public class BookmarkListAdapter extends RecyclerView.Adapter<Holders.BaseBookma
   private RecyclerLongClickListener mLongClickListener;
   private RecyclerClickListener mMoreClickListener;
   private IconClickListener mIconClickListener;
+
+  // Multi-selection state. Items are tracked by their ids, so the selection survives re-sorting.
+  private boolean mSelectionMode = false;
+  private final Set<Long> mSelectedTrackIds = new HashSet<>();
+  private final Set<Long> mSelectedBookmarkIds = new HashSet<>();
 
   public static abstract class SectionsDataSource
   {
@@ -499,6 +506,107 @@ public class BookmarkListAdapter extends RecyclerView.Adapter<Holders.BaseBookma
   {
     SectionPosition sp = getSectionPosition(position);
     holder.bind(sp, mSectionsDataSource);
+
+    boolean selected = false;
+    if (sp.isItemPosition())
+    {
+      int type = mSectionsDataSource.getItemsType(sp.getSectionIndex());
+      if (type == TYPE_TRACK)
+        selected = mSelectedTrackIds.contains(mSectionsDataSource.getTrackId(sp));
+      else if (type == TYPE_BOOKMARK)
+        selected = mSelectedBookmarkIds.contains(mSectionsDataSource.getBookmarkId(sp));
+    }
+    holder.setSelection(mSelectionMode, selected);
+  }
+
+  boolean isSelectionMode()
+  {
+    return mSelectionMode;
+  }
+
+  void setSelectionMode(boolean selectionMode)
+  {
+    mSelectionMode = selectionMode;
+    mSelectedTrackIds.clear();
+    mSelectedBookmarkIds.clear();
+    notifyDataSetChanged();
+  }
+
+  int getSelectedCount()
+  {
+    return mSelectedTrackIds.size() + mSelectedBookmarkIds.size();
+  }
+
+  /** Total number of selectable (track or bookmark) rows currently shown. */
+  int getSelectableCount()
+  {
+    int count = 0;
+    for (int i = 0; i < mSectionsDataSource.getSectionsCount(); ++i)
+    {
+      int type = mSectionsDataSource.getItemsType(i);
+      if (type == TYPE_TRACK || type == TYPE_BOOKMARK)
+        count += mSectionsDataSource.getItemsCount(i);
+    }
+    return count;
+  }
+
+  /** Toggles selection of the track or bookmark at the given adapter position. */
+  void toggleSelection(int position)
+  {
+    SectionPosition sp = getSectionPosition(position);
+    if (!sp.isItemPosition())
+      return;
+    int type = mSectionsDataSource.getItemsType(sp.getSectionIndex());
+    Set<Long> set;
+    long id;
+    if (type == TYPE_TRACK)
+    {
+      set = mSelectedTrackIds;
+      id = mSectionsDataSource.getTrackId(sp);
+    }
+    else if (type == TYPE_BOOKMARK)
+    {
+      set = mSelectedBookmarkIds;
+      id = mSectionsDataSource.getBookmarkId(sp);
+    }
+    else
+      return;
+
+    if (!set.remove(id))
+      set.add(id);
+    notifyItemChanged(position);
+  }
+
+  void selectAll()
+  {
+    mSelectedTrackIds.clear();
+    mSelectedBookmarkIds.clear();
+    for (int s = 0; s < mSectionsDataSource.getSectionsCount(); ++s)
+    {
+      int type = mSectionsDataSource.getItemsType(s);
+      int count = mSectionsDataSource.getItemsCount(s);
+      for (int i = 0; i < count; ++i)
+      {
+        SectionPosition sp = new SectionPosition(s, i);
+        if (type == TYPE_TRACK)
+          mSelectedTrackIds.add(mSectionsDataSource.getTrackId(sp));
+        else if (type == TYPE_BOOKMARK)
+          mSelectedBookmarkIds.add(mSectionsDataSource.getBookmarkId(sp));
+      }
+    }
+    notifyDataSetChanged();
+  }
+
+  @NonNull
+  List<Long> getSelectedTrackIds()
+  {
+    return new ArrayList<>(mSelectedTrackIds);
+  }
+
+  @NonNull
+  List<Long> getSelectedBookmarkIds()
+  {
+    return new ArrayList<>(mSelectedBookmarkIds);
   }
 
   @Override

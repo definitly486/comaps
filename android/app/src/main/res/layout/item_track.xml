@@ -42,6 +42,17 @@
       android:textAppearance="@style/MwmTextAppearance.Body2"
       tools:text="@string/by_distance" />
   </LinearLayout>
+  <com.google.android.material.checkbox.MaterialCheckBox
+    android:id="@+id/selection_checkbox"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentEnd="true"
+    android:layout_centerVertical="true"
+    android:layout_marginEnd="@dimen/margin_half"
+    android:clickable="false"
+    android:focusable="false"
+    android:visibility="gone"
+    android:importantForAccessibility="no" />
   <com.google.android.material.imageview.ShapeableImageView
     android:id="@+id/more"
     android:layout_width="wrap_content"

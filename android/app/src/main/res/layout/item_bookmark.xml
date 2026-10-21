@@ -21,7 +21,7 @@
     android:orientation="vertical"
     android:layout_centerVertical="true"
     android:layout_toEndOf="@id/iv__bookmark_color"
-    android:layout_toStartOf="@id/more">
+    android:layout_toStartOf="@+id/selection_checkbox">
     <com.google.android.material.textview.MaterialTextView
       android:id="@+id/tv__bookmark_name"
       android:layout_width="wrap_content"
@@ -42,4 +42,16 @@
       android:visibility="gone"
       android:textAppearance="@style/MwmTextAppearance.Body3"/>
   </LinearLayout>
+
+  <com.google.android.material.checkbox.MaterialCheckBox
+    android:id="@+id/selection_checkbox"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:layout_alignParentEnd="true"
+    android:layout_centerVertical="true"
+    android:layout_marginEnd="@dimen/margin_half"
+    android:clickable="false"
+    android:focusable="false"
+    android:visibility="gone"
+    android:importantForAccessibility="no" />
 </RelativeLayout>

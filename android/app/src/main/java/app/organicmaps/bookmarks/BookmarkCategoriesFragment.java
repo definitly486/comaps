@@ -16,9 +16,12 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
+import androidx.activity.OnBackPressedCallback;
 import androidx.activity.result.ActivityResultLauncher;
 import androidx.activity.result.contract.ActivityResultContracts;
 import androidx.annotation.CallSuper;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AppCompatActivity;
 import androidx.annotation.LayoutRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -91,6 +94,18 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment<Bookmark
   @NonNull
   private DataChangedListener mCategoriesAdapterObserver;
 
+  private boolean mSelectionMode = false;
+  @Nullable
+  private CharSequence mTitleBeforeSelection;
+  // Intercepts "back" while in selection mode to leave it instead of closing the screen.
+  private final OnBackPressedCallback mSelectionBackCallback = new OnBackPressedCallback(false) {
+    @Override
+    public void handleOnBackPressed()
+    {
+      stopSelectionMode();
+    }
+  };
+
   private final ActivityResultLauncher<Intent> startBookmarkListForResult =
       registerForActivityResult(new ActivityResultContracts.StartActivityForResult(), activityResult -> {
         if (activityResult.getResultCode() == Activity.RESULT_OK)
@@ -159,6 +174,73 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment<Bookmark
 
 
     shareLauncher = SharingUtils.RegisterLauncher(this);
+    requireActivity().getOnBackPressedDispatcher().addCallback(getViewLifecycleOwner(), mSelectionBackCallback);
+  }
+
+  // ---- Selection mode ----
+
+  private void startSelectionMode()
+  {
+    if (mSelectionMode)
+      return;
+    if (mSearchMode)
+    {
+      cancelSearch();
+      deactivateSearch();
+    }
+    mSelectionMode = true;
+    mSelectionBackCallback.setEnabled(true);
+    final ActionBar bar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+    mTitleBeforeSelection = bar != null ? bar.getTitle() : null;
+    getAdapter().setSelectionMode(true);
+    updateSelectionUi();
+  }
+
+  private void stopSelectionMode()
+  {
+    if (!mSelectionMode)
+      return;
+    mSelectionMode = false;
+    mSelectionBackCallback.setEnabled(false);
+    getAdapter().setSelectionMode(false);
+    final ActionBar bar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+    if (bar != null && mTitleBeforeSelection != null)
+      bar.setTitle(mTitleBeforeSelection);
+    requireActivity().invalidateOptionsMenu();
+  }
+
+  private void updateSelectionUi()
+  {
+    final ActionBar bar = ((AppCompatActivity) requireActivity()).getSupportActionBar();
+    if (bar != null)
+      bar.setTitle(getString(R.string.selected_count, getAdapter().getSelectedCategoryIds().size()));
+    requireActivity().invalidateOptionsMenu();
+  }
+
+  private void onDeleteSelectedClicked()
+  {
+    final List<Long> ids = getAdapter().getSelectedCategoryIds();
+    if (ids.isEmpty())
+      return;
+    // The last remaining list can't be deleted.
+    if (ids.size() >= getAdapter().getBookmarkCategories().size())
+    {
+      Toast.makeText(requireContext(), R.string.keep_one_list, Toast.LENGTH_LONG).show();
+      return;
+    }
+    new MaterialAlertDialogBuilder(requireActivity())
+        .setMessage(getString(R.string.delete_selected_lists_confirm, ids.size()))
+        .setNegativeButton(R.string.cancel, null)
+        .setPositiveButton(R.string.delete, (dialog, which) -> deleteSelectedCategories(ids))
+        .show();
+  }
+
+  private void deleteSelectedCategories(@NonNull List<Long> ids)
+  {
+    for (long id : ids)
+      BookmarkManager.INSTANCE.deleteCategory(id);
+    getAdapter().setItems(BookmarkManager.INSTANCE.getCategories());
+    stopSelectionMode();
   }
 
   // ---- Search lifecycle ----
@@ -174,14 +256,52 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment<Bookmark
   public void onPrepareOptionsMenu(@NonNull Menu menu)
   {
     MenuItem itemSearch = menu.findItem(R.id.bookmarks_search);
-    itemSearch.setVisible(!mSearchMode);
+    itemSearch.setVisible(!mSearchMode && !mSelectionMode);
     MenuItem itemMore = menu.findItem(R.id.bookmarks_more);
     itemMore.setVisible(false);
+
+    menu.findItem(R.id.bookmark_categories_sort).setVisible(!mSelectionMode);
+    menu.findItem(R.id.bookmark_categories_select)
+        .setVisible(!mSelectionMode && !mSearchMode && getAdapter().getItemCount() > 0);
+
+    final MenuItem itemSelectAll = menu.findItem(R.id.bookmarks_select_all);
+    final MenuItem itemDeleteSelected = menu.findItem(R.id.bookmarks_delete_selected);
+    final MenuItem itemCancel = menu.findItem(R.id.bookmarks_cancel_selection);
+    itemSelectAll.setVisible(mSelectionMode);
+    itemDeleteSelected.setVisible(mSelectionMode);
+    itemCancel.setVisible(mSelectionMode);
+    if (mSelectionMode)
+    {
+      final int selected = getAdapter().getSelectedCategoryIds().size();
+      itemSelectAll.setEnabled(selected < getAdapter().getBookmarkCategories().size());
+      itemDeleteSelected.setEnabled(selected > 0);
+    }
   }
 
   @Override
   public boolean onOptionsItemSelected(@NonNull MenuItem item)
   {
+    if (item.getItemId() == R.id.bookmark_categories_select)
+    {
+      startSelectionMode();
+      return true;
+    }
+    if (item.getItemId() == R.id.bookmarks_select_all)
+    {
+      getAdapter().selectAll();
+      updateSelectionUi();
+      return true;
+    }
+    if (item.getItemId() == R.id.bookmarks_delete_selected)
+    {
+      onDeleteSelectedClicked();
+      return true;
+    }
+    if (item.getItemId() == R.id.bookmarks_cancel_selection)
+    {
+      stopSelectionMode();
+      return true;
+    }
     if (item.getItemId() == R.id.bookmarks_search)
     {
       activateSearch();
@@ -492,6 +612,12 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment<Bookmark
   @Override
   public void onItemClick(@NonNull View v, @NonNull BookmarkCategory category)
   {
+    if (mSelectionMode)
+    {
+      getAdapter().toggleSelection(category);
+      updateSelectionUi();
+      return;
+    }
     mSelectedCategory = category;
     BookmarkListActivity.startForResult(this, startBookmarkListForResult, category);
   }
@@ -561,11 +687,21 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment<Bookmark
   @Override
   public void onItemLongClick(@NonNull View v, @NonNull BookmarkCategory category)
   {
-    showBottomMenu(category);
+    // A long press starts multi-selection; the "more" button keeps the per-list menu.
+    if (!mSelectionMode)
+      startSelectionMode();
+    getAdapter().toggleSelection(category);
+    updateSelectionUi();
   }
 
   public void onItemMoreClick(@NonNull View v, @NonNull BookmarkCategory category)
   {
+    if (mSelectionMode)
+    {
+      getAdapter().toggleSelection(category);
+      updateSelectionUi();
+      return;
+    }
     showBottomMenu(category);
   }
 
