@@ -535,6 +535,13 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment<Bookmark
                                         () -> onShareActionSelected(mSelectedCategory, KmlFileType.Text)));
       items.add(new MenuBottomSheetItem(R.string.export_file_gpx, R.drawable.ic_file_gpx,
                                         () -> onShareActionSelected(mSelectedCategory, KmlFileType.Gpx)));
+      // Starts multi-selection with this list already selected.
+      items.add(new MenuBottomSheetItem(R.string.select, R.drawable.ic_checkmark, () -> {
+        final BookmarkCategory category = mSelectedCategory;
+        startSelectionMode();
+        getAdapter().toggleSelection(category);
+        updateSelectionUi();
+      }));
       // Disallow deleting the last category
       if (getAdapter().getBookmarkCategories().size() > 1)
         items.add(new MenuBottomSheetItem(R.string.delete, R.drawable.ic_delete,
@@ -687,11 +694,15 @@ public class BookmarkCategoriesFragment extends BaseMwmRecyclerFragment<Bookmark
   @Override
   public void onItemLongClick(@NonNull View v, @NonNull BookmarkCategory category)
   {
-    // A long press starts multi-selection; the "more" button keeps the per-list menu.
-    if (!mSelectionMode)
-      startSelectionMode();
-    getAdapter().toggleSelection(category);
-    updateSelectionUi();
+    // Outside of selection mode a long press keeps its original behaviour (the per-list menu).
+    // Selection mode is entered from the options menu ("Select").
+    if (mSelectionMode)
+    {
+      getAdapter().toggleSelection(category);
+      updateSelectionUi();
+      return;
+    }
+    showBottomMenu(category);
   }
 
   public void onItemMoreClick(@NonNull View v, @NonNull BookmarkCategory category)

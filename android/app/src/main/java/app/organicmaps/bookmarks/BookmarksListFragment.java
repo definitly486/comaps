@@ -571,20 +571,13 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
 
   private void onItemLongClick(int position)
   {
-    BookmarkListAdapter adapter = getBookmarkListAdapter();
     if (mSelectionMode)
     {
       onSelectionToggle(position);
       return;
     }
-    // A long press on a track starts multi-selection. Bookmarks keep their context menu,
-    // as they have no "more" button; they can be selected via the options menu.
-    if (adapter.getItemViewType(position) == BookmarkListAdapter.TYPE_TRACK)
-    {
-      startSelectionMode();
-      onSelectionToggle(position);
-      return;
-    }
+    // Outside of selection mode a long press keeps its original behaviour (the item menu).
+    // Selection mode is entered from the options menu ("Select").
     onItemMore(position);
   }
 
@@ -941,6 +934,7 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
     ArrayList<MenuBottomSheetItem> items = new ArrayList<>();
     items.add(new MenuBottomSheetItem(R.string.share, R.drawable.ic_share, this::onShareActionSelected));
     items.add(new MenuBottomSheetItem(R.string.edit, R.drawable.ic_edit, this::onEditActionSelected));
+    items.add(new MenuBottomSheetItem(R.string.select, R.drawable.ic_checkmark, this::onSelectActionSelected));
     items.add(new MenuBottomSheetItem(R.string.delete, R.drawable.ic_delete, this::onDeleteActionSelected));
     return items;
   }
@@ -953,9 +947,18 @@ public class BookmarksListFragment extends BaseMwmRecyclerFragment<ConcatAdapter
                                       () -> onShareTrackSelected(track.getTrackId(), KmlFileType.Text)));
     items.add(new MenuBottomSheetItem(R.string.export_file_gpx, R.drawable.ic_file_gpx,
                                       () -> onShareTrackSelected(track.getTrackId(), KmlFileType.Gpx)));
+    items.add(new MenuBottomSheetItem(R.string.select, R.drawable.ic_checkmark, this::onSelectActionSelected));
     items.add(new MenuBottomSheetItem(R.string.delete, R.drawable.ic_delete,
                                       () -> onDeleteTrackSelected(track.getTrackId())));
     return items;
+  }
+
+  /** Starts multi-selection from the item menu, with the item the menu was opened for already selected. */
+  private void onSelectActionSelected()
+  {
+    final int position = mSelectedPosition;
+    startSelectionMode();
+    onSelectionToggle(position);
   }
 
   private void onShareTrackSelected(long trackId, KmlFileType kmlFileType)
